@@ -28,7 +28,9 @@ php artisan test --filter=TestName   # run a single test
 ./vendor/bin/pint             # code style fixer (Laravel Pint)
 ```
 
-phpunit.xml has `DB_CONNECTION`/`DB_DATABASE` sqlite overrides commented out, so tests currently run against whatever DB connection is configured in `.env` — not an isolated in-memory sqlite DB. Keep this in mind when running tests locally (they will read/write the dev database) unless you uncomment those lines.
+`phpunit.xml` sets `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:`, so the test suite runs isolated from the dev database (`pdo_sqlite` must be enabled). 3 pre-existing tests fail independent of this — see "Orphaned Breeze scaffolding" below.
+
+If route/view changes don't seem to take effect locally, check for a stale `bootstrap/cache/routes-v7.php` (or `route:cache` in general) and run `php artisan route:clear` — it's untracked/gitignored but persists across sessions once created, and silently shadows `routes/web.php`.
 
 ## Architecture
 
@@ -46,8 +48,10 @@ phpunit.xml has `DB_CONNECTION`/`DB_DATABASE` sqlite overrides commented out, so
 - `Visit` — belongs to `Client`; one row created per portal form submission (`visited_at`).
 - `Role` / `User` — many-to-many via `role_user` pivot.
 
-**`CaptivePortalForm` submit flow** (`app/Livewire/CaptivePortalForm.php`): validates, finds-or-creates a `Client` by `phone_number`, creates a `Visit`, resets the form, and flashes a session message/type — all wrapped in a try/catch that logs and shows a generic Spanish error on failure (validation errors themselves are not caught, they render inline as usual).
+**`CaptivePortalForm` submit flow** (`app/Livewire/CaptivePortalForm.php`): validation (`$this->validate()`) runs *outside* the try/catch — `ValidationException` extends `\Exception`, so it must not be caught there or it gets swallowed and replaced by the generic error flash instead of rendering inline field errors (this was a real bug, fixed). After validation: finds-or-creates a `Client` by `phone_number`, creates a `Visit`, resets the form, and flashes a session message/type, with persistence wrapped in its own try/catch that logs and shows a generic Spanish error on failure.
 
-**Admin dashboard** (`AdminController@index`): delegates visit-count stats (total/today/week/month/year) to `App\Services\VisitStatsService::summary()`, which caches each count individually via `Cache::remember` (300s TTL, flat keys `visit_count`, `today_visits`, etc. — not scoped per-user/date); the controller then adds a full client list with `withCount('visits')`.
+**Admin dashboard** (`AdminController@index`): delegates visit-count stats (total/today/week/month/year) to `App\Services\VisitStatsService::summary()`, which caches each count individually via `Cache::remember` (300s TTL, flat keys `visit_count`, `today_visits`, etc. — not scoped per-user/date). Despite the "visits" naming, these counts are all based on `Client.created_at` (new clients), not `Visit.visited_at` (portal submissions) — a pre-existing naming/semantics quirk, not something recently changed. `Client::visits()` (hasMany `Visit`) is required for the controller's `withCount('visits')` call — it was missing until fixed alongside this.
+
+**Orphaned Breeze scaffolding**: `resources/views/livewire/layout/navigation.blade.php` and `resources/views/profile.blade.php` (+ `app/Livewire/Forms`/`profile` Livewire components) are leftover from the original Breeze starter kit and are not included by any live layout — `resources/views/layouts/app.blade.php` (used by the admin dashboard) and `resources/views/components/layouts/app.blade.php` don't reference them. `navigation.blade.php` also calls `route('dashboard')`/`route('profile')`, but the real route is named `admin.dashboard` and no `/profile` route exists at all. This makes `tests/Feature/Auth/AuthenticationTest.php` (`navigation menu can be rendered`, `users can logout`) and `tests/Feature/ProfileTest.php` fail — pre-existing, unrelated to the domain logic (`CaptivePortalForm`, `VisitStatsService`, `access-admin-panel`). Fixing this means picking one of: wire the nav/profile views into the real layout, or delete the dead views/tests — a product decision, not made here.
 
 Livewire/Volt views live under `resources/views/livewire/`; Blade layout components (`AppLayout`, `GuestLayout`) live under `app/View/Components/` with templates in `resources/views/components/layouts/`.

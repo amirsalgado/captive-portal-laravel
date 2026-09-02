@@ -1,9 +1,9 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Livewire\CaptivePortalForm;
 use App\Http\Controllers\AdminController;
 use App\Livewire\Actions\Logout;
+use App\Livewire\CaptivePortalForm;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', CaptivePortalForm::class)->name('captive-portal');
 
@@ -15,6 +15,7 @@ Route::middleware(['auth', 'verified', 'can:access-admin-panel'])->group(functio
 
 Route::post('/logout', function (Logout $logout) {
     $logout();
+
     return redirect('/');
 })->name('logout');
 

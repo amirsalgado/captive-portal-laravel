@@ -48,6 +48,6 @@ phpunit.xml has `DB_CONNECTION`/`DB_DATABASE` sqlite overrides commented out, so
 
 **`CaptivePortalForm` submit flow** (`app/Livewire/CaptivePortalForm.php`): validates, finds-or-creates a `Client` by `phone_number`, creates a `Visit`, resets the form, and flashes a session message/type — all wrapped in a try/catch that logs and shows a generic Spanish error on failure (validation errors themselves are not caught, they render inline as usual).
 
-**Admin dashboard** (`AdminController@index`): computes visit counts (total/today/week/month/year) via `Cache::remember` with a 300s TTL and flat cache keys (`visit_count`, `today_visits`, etc. — not scoped per-user/date), plus a full client list with `withCount('visits')`.
+**Admin dashboard** (`AdminController@index`): delegates visit-count stats (total/today/week/month/year) to `App\Services\VisitStatsService::summary()`, which caches each count individually via `Cache::remember` (300s TTL, flat keys `visit_count`, `today_visits`, etc. — not scoped per-user/date); the controller then adds a full client list with `withCount('visits')`.
 
 Livewire/Volt views live under `resources/views/livewire/`; Blade layout components (`AppLayout`, `GuestLayout`) live under `app/View/Components/` with templates in `resources/views/components/layouts/`.

@@ -16,7 +16,6 @@ class CaptivePortalForm extends Component
 
     public $birth_date = '';
 
-    // Define error message in Spanish
     protected $messages = [
         'full_name.required' => 'El nombre completo es requerido.',
         'full_name.max' => 'El nombre no debe exceder los 255 caracteres.',
@@ -27,7 +26,6 @@ class CaptivePortalForm extends Component
         'birth_date.before' => 'La fecha de nacimiento debe ser una fecha en el pasado.',
     ];
 
-    // Define validation rules
     protected function rules()
     {
         return [
@@ -45,7 +43,6 @@ class CaptivePortalForm extends Component
         ];
     }
 
-    // Real-time validation
     public function updated($propertyName)
     {
         $this->validateOnly($propertyName);
@@ -60,30 +57,23 @@ class CaptivePortalForm extends Component
         $validatedData['birth_date'] = Carbon::parse($this->birth_date)->format('Y-m-d');
 
         try {
-            // Check if client already exists
             $client = Client::where('phone_number', $this->phone_number)->first();
 
             if ($client) {
-                // Update existing client
                 $client->update($validatedData);
             } else {
-                // Create new client
                 $client = Client::create($validatedData);
             }
 
-            // Register visit
             Visit::create([
                 'client_id' => $client->id,
                 'visited_at' => Carbon::now(),
             ]);
 
-            // Clear form fields after successful submission
             $this->reset(['full_name', 'phone_number', 'birth_date']);
 
-            // Flash success message
             session()->flash('message', '¡Cliente registrado exitosamente!');
             session()->flash('type', 'success');
-
         } catch (\Exception $e) {
             Log::error('Error creating client: '.$e->getMessage());
             session()->flash('message', 'Error al registrar el cliente. Por favor, intente nuevamente.');
@@ -96,7 +86,6 @@ class CaptivePortalForm extends Component
         return view('livewire.captive-portal-form');
     }
 
-    // Reset form
     public function resetForm()
     {
         $this->reset(['full_name', 'phone_number', 'birth_date']);

@@ -11,4 +11,9 @@ export default defineConfig({
             refresh: true,
         }),
     ],
+    server: {
+        host: '0.0.0.0', // required so the Vite dev server is reachable from outside the `node` Docker container
+        port: 5173,
+        strictPort: true,
+    },
 });

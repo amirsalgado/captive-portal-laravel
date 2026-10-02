@@ -1,0 +1,65 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/var/www/html
+      - vendor:/var/www/html/vendor
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: captive_portal
+      DB_USERNAME: laravel
+      DB_PASSWORD: secret
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [app]
+
+  # Vite dev server (HMR). Laravel's @vite directive auto-detects it via
+  # public/hot, written into the bind-mounted volume this container shares
+  # with `app`. Port 5173 is published so the browser (on the host) can
+  # reach it directly.
+  node:
+    image: node:20-alpine
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - node_modules:/var/www/html/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    networks: [app]
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: captive_portal
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - dbdata:/var/lib/mysql
+    ports:
+      - "3307:3306" # host 3307 to avoid clashing with a local MySQL (e.g. Laragon) on 3306
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [app]
+
+volumes:
+  vendor:
+  node_modules:
+  dbdata:
+
+networks:
+  app:
+    driver: bridge
